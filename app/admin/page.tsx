@@ -12,16 +12,12 @@ export default function AdminDashboard() {
   const { 
     getAllEntries, 
     getTodayEntries, 
-    getAllSessions, 
-    getSessionEntries,
-    startNewDay, 
-    currentDate,
-    currentSessionId,
+    getAllDates,
+    refreshEntries,
     loading: contextLoading,
-    updateEntryCountAdmin,
   } = useApp();
   const [showSuccess, setShowSuccess] = useState(false);
-  const [filterSession, setFilterSession] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,16 +36,16 @@ export default function AdminDashboard() {
 
   const allEntries = getAllEntries();
   const todayEntries = getTodayEntries();
-  const sessions = getAllSessions();
+  const dates = getAllDates();
 
-  const filteredEntries = filterSession === 'all' 
+  const filteredEntries = filterDate === 'all' 
     ? allEntries 
-    : filterSession === 'today'
+    : filterDate === 'today'
     ? todayEntries
-    : getSessionEntries(filterSession);
+    : allEntries.filter((e: any) => e.date === filterDate);
 
-  const todayPeople = todayEntries.reduce((sum, e) => sum + e.peopleCount, 0);
-  const totalPeople = allEntries.reduce((sum, e) => sum + e.peopleCount, 0);
+  const todayPeople = todayEntries.reduce((sum: number, e: any) => sum + e.peopleCount, 0);
+  const totalPeople = allEntries.reduce((sum: number, e: any) => sum + e.peopleCount, 0);
 
   const pgBreakdown = todayEntries.reduce((acc, e) => {
     const existing = acc.find(p => p.pgName === e.pgName);
@@ -74,10 +70,9 @@ export default function AdminDashboard() {
     });
   };
 
-  const handleStartNewDay = () => {
-    startNewDay();
+  const handleRefresh = () => {
+    refreshEntries();
     setShowSuccess(true);
-    setFilterSession('today');
     setTimeout(() => setShowSuccess(false), 3000);
   };
 
@@ -218,17 +213,14 @@ export default function AdminDashboard() {
           <div className="glass-card p-4">
             <h3 className="text-gold-400 font-medium mb-4 flex items-center gap-2">
               <Calendar size={18} />
-              Start New Day
+              Refresh Data
             </h3>
             <p className="text-gold-500/60 text-sm mb-4">
-              Current Date: {formatDisplayDate(currentDate)}
+              Click refresh to see latest entries from all users.
             </p>
-            <p className="text-gold-500/60 text-sm mb-4">
-              This will start a new registration session. Previous data will be preserved in history.
-            </p>
-            <Button onClick={handleStartNewDay} className="w-full">
+            <Button onClick={handleRefresh} className="w-full">
               <RefreshCw size={18} className="mr-2" />
-              Start New Day
+              Refresh Entries
             </Button>
           </div>
         </div>
@@ -237,17 +229,17 @@ export default function AdminDashboard() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-lg font-semibold text-gold-400">All Registrations</h2>
             <div className="flex items-center gap-2">
-              <label className="text-gold-500/60 text-sm">Filter:</label>
+              <label className="text-gold-500/60 text-sm">Filter by Date:</label>
               <select
-                value={filterSession}
-                onChange={(e) => setFilterSession(e.target.value)}
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
                 className="bg-navy-800/50 border border-gold-500/20 rounded-lg px-3 py-2 text-gold-50 text-sm focus:border-gold-500 outline-none"
               >
-                <option value="all">All Sessions</option>
-                <option value="today">Today&apos;s Session</option>
-                {sessions.filter(s => s.sessionId !== currentSessionId).map((session) => (
-                  <option key={session.sessionId} value={session.sessionId}>
-                    {formatDisplayDate(session.date)} ({session.count})
+                <option value="all">All Dates</option>
+                <option value="today">Tomorrow</option>
+                {dates.map((d: any) => (
+                  <option key={d.date} value={d.date}>
+                    {formatDisplayDate(d.date)} ({d.count})
                   </option>
                 ))}
               </select>

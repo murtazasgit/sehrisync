@@ -8,7 +8,18 @@ import { useApp } from '@/context/AppContext';
 
 export default function AddEntryPage() {
   const router = useRouter();
-  const { addEntry, currentDate, loading } = useApp();
+  const { addEntry, loading } = useApp();
+
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
 
   if (loading) {
     return (
@@ -71,7 +82,7 @@ export default function AddEntryPage() {
         </motion.div>
 
         <div className="text-center mb-6">
-          <p className="text-gold-500/70">{formatDisplayDate(currentDate)}</p>
+          <p className="text-gold-500/70">{getTomorrowDate()}</p>
         </div>
 
         <motion.div

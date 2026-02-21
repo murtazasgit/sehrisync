@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
 import EntriesTable from '@/components/registration/EntriesTable';
@@ -9,7 +9,7 @@ import { useApp } from '@/context/AppContext';
 
 export default function EntriesPage() {
   const router = useRouter();
-  const { getTodayEntries, updateEntryCount, currentDate, isOwner, currentUserId, loading, error, refreshEntries } = useApp();
+  const { getTodayEntries, loading, refreshEntries } = useApp();
   
   if (loading) {
     return (
@@ -34,10 +34,6 @@ export default function EntriesPage() {
       month: 'long', 
       day: 'numeric' 
     });
-  };
-
-  const handleUpdateCount = (id: string, newCount: number) => {
-    updateEntryCount(id, newCount);
   };
 
   const handleRefresh = () => {
@@ -84,22 +80,6 @@ export default function EntriesPage() {
             </Button>
           </div>
         </motion.div>
-
-        {error && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 glass-card p-4 border-red-500/30 flex items-center gap-3"
-          >
-            <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
-            <div className="flex-1">
-              <p className="text-red-400 text-sm">{error}</p>
-            </div>
-            <Button size="sm" variant="outline" onClick={handleRefresh}>
-              Retry
-            </Button>
-          </motion.div>
-        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -155,9 +135,6 @@ export default function EntriesPage() {
             ) : (
               <EntriesTable
                 entries={todayEntries}
-                onUpdateCount={handleUpdateCount}
-                isOwner={isOwner}
-                currentUserId={currentUserId}
               />
             )}
           </div>

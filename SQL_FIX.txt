@@ -1,0 +1,12 @@
+-- Update all entries to use tomorrow's date
+-- Run this in Supabase SQL Editor
+
+-- First, let's see what dates we have
+SELECT DISTINCT date FROM entries;
+
+-- Update all entries to tomorrow's date
+UPDATE entries 
+SET date = TO_CHAR(CURRENT_DATE + 1, 'YYYY-MM-DD');
+
+-- Verify the update
+SELECT date, COUNT(*) FROM entries GROUP BY date;

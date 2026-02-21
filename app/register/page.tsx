@@ -8,7 +8,18 @@ import { useApp } from '@/context/AppContext';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { addEntry, currentDate } = useApp();
+  const { addEntry } = useApp();
+
+  const getTomorrowDate = () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
 
   const handleAddEntry = (data: {
     personName: string;
@@ -63,7 +74,7 @@ export default function RegisterPage() {
         </motion.div>
 
         <div className="text-center mb-6">
-          <p className="text-gold-500/70">{formatDisplayDate(currentDate)}</p>
+          <p className="text-gold-500/70">{getTomorrowDate()}</p>
         </div>
 
         <motion.div
