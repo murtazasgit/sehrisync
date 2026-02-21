@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus, RefreshCw, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui';
 import EntriesTable from '@/components/registration/EntriesTable';
@@ -9,12 +9,15 @@ import { useApp } from '@/context/AppContext';
 
 export default function EntriesPage() {
   const router = useRouter();
-  const { getTodayEntries, updateEntryCount, currentDate, isOwner, currentUserId, loading } = useApp();
+  const { getTodayEntries, updateEntryCount, currentDate, isOwner, currentUserId, loading, error, refreshEntries } = useApp();
   
   if (loading) {
     return (
       <main className="min-h-screen bg-navy-950 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-gold-500 border-t-transparent rounded-full" />
+        <div className="text-center">
+          <div className="animate-spin w-10 h-10 border-3 border-gold-500 border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-gold-500/60">Loading entries...</p>
+        </div>
       </main>
     );
   }
@@ -37,6 +40,10 @@ export default function EntriesPage() {
     updateEntryCount(id, newCount);
   };
 
+  const handleRefresh = () => {
+    refreshEntries();
+  };
+
   return (
     <main className="min-h-screen bg-navy-950 py-8 px-4">
       <div className="geometric-pattern absolute inset-0 opacity-30" />
@@ -57,16 +64,42 @@ export default function EntriesPage() {
           <h1 className="text-xl md:text-2xl font-bold text-gold-400 islamic-heading">
             Ramadan Sehri
           </h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/add-entry')}
-            className="flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Add
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw size={16} />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/add-entry')}
+              className="flex items-center gap-2"
+            >
+              <Plus size={16} />
+              Add
+            </Button>
+          </div>
         </motion.div>
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 glass-card p-4 border-red-500/30 flex items-center gap-3"
+          >
+            <AlertCircle className="text-red-400 flex-shrink-0" size={20} />
+            <div className="flex-1">
+              <p className="text-red-400 text-sm">{error}</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={handleRefresh}>
+              Retry
+            </Button>
+          </motion.div>
+        )}
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}

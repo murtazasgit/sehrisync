@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
-import { ADMIN_PASSWORD } from '@/lib/constants';
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -14,20 +13,28 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD;
+
+  console.log('Environment password:', adminPassword);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // Simulate authentication
-    await new Promise(resolve => setTimeout(resolve, 800));
+    if (!adminPassword) {
+      setError('Admin password not configured. Please set NEXT_PUBLIC_ADMIN_PASSWORD in .env.local');
+      setLoading(false);
+      return;
+    }
 
-    if (password === ADMIN_PASSWORD) {
-      // Store admin session
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    if (password === adminPassword) {
       sessionStorage.setItem('adminAuthenticated', 'true');
       router.push('/admin');
     } else {
-      setError('Invalid password');
+      setError('Incorrect password');
     }
     setLoading(false);
   };

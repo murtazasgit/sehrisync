@@ -22,9 +22,11 @@ interface AppContextType {
   currentUserId: string | null;
   currentUserPhone: string | null;
   loading: boolean;
-  addEntry: (entry: Omit<Entry, 'id' | 'date' | 'sessionId' | 'userId' | 'createdAt'>) => void;
-  updateEntryCount: (id: string, newCount: number) => void;
-  updateEntryCountAdmin: (id: string, newCount: number) => void;
+  error: string | null;
+  addEntry: (entry: Omit<Entry, 'id' | 'date' | 'sessionId' | 'userId' | 'createdAt'>) => Promise<void>;
+  updateEntryCount: (id: string, newCount: number) => Promise<void>;
+  updateEntryCountAdmin: (id: string, newCount: number) => Promise<void>;
+  refreshEntries: () => Promise<void>;
   startNewDay: () => void;
   getTodayEntries: () => Entry[];
   getAllEntries: () => Entry[];
@@ -37,8 +39,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey)
@@ -72,6 +74,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserPhone, setCurrentUserPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchEntries = async () => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+
+    const { data, error: fetchError } = await supabase
+      .from('entries')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (fetchError) {
+      console.error('Error fetching entries:', fetchError);
+      setError('Failed to fetch entries from database');
+    } else if (data) {
+      setEntries(data.map((row: any) => ({
+        id: row.id,
+        personName: row.person_name,
+        pgName: row.pg_name,
+        phoneNumber: row.phone_number,
+        peopleCount: row.people_count,
+        date: row.date,
+        sessionId: row.session_id,
+        userId: row.user_id,
+        createdAt: row.created_at,
+      })));
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     const initializeData = async () => {
@@ -96,30 +129,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (supabase) {
-        const { data, error } = await supabase
-          .from('entries')
-          .select('*')
-          .order('createdAt', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching entries:', error);
-        } else if (data) {
-          setEntries(data.map((row: any) => ({
-            id: row.id,
-            personName: row.person_name,
-            pgName: row.pg_name,
-            phoneNumber: row.phone_number,
-            peopleCount: row.people_count,
-            date: row.date,
-            sessionId: row.session_id,
-            userId: row.user_id,
-            createdAt: row.created_at,
-          })));
-        }
-      }
-
-      setLoading(false);
+      await fetchEntries();
     };
 
     initializeData();
@@ -137,31 +147,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           schema: 'public',
           table: 'entries',
         },
-        (payload) => {
-          if (payload.eventType === 'INSERT') {
-            const newEntry = payload.new as any;
-            setEntries(prev => [{
-              id: newEntry.id,
-              personName: newEntry.person_name,
-              pgName: newEntry.pg_name,
-              phoneNumber: newEntry.phone_number,
-              peopleCount: newEntry.people_count,
-              date: newEntry.date,
-              sessionId: newEntry.session_id,
-              userId: newEntry.user_id,
-              createdAt: newEntry.created_at,
-            }, ...prev]);
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedEntry = payload.new as any;
-            setEntries(prev => prev.map(e => 
-              e.id === updatedEntry.id 
-                ? { ...e, peopleCount: updatedEntry.people_count }
-                : e
-            ));
-          } else if (payload.eventType === 'DELETE') {
-            const deletedEntry = payload.old as any;
-            setEntries(prev => prev.filter(e => e.id !== deletedEntry.id));
-          }
+        () => {
+          fetchEntries();
         }
       )
       .subscribe();
@@ -170,6 +157,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(channel);
     };
   }, [loading]);
+
+  const refreshEntries = async () => {
+    setLoading(true);
+    setError(null);
+    await fetchEntries();
+  };
 
   const setCurrentUser = (userId: string, phone: string) => {
     setCurrentUserId(userId);
@@ -188,6 +181,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const addEntry = async (entry: Omit<Entry, 'id' | 'date' | 'sessionId' | 'userId' | 'createdAt'>) => {
+    if (!supabase) {
+      setError('Database not connected. Please configure Supabase.');
+      return;
+    }
+
     const trimmedName = entry.personName.trim();
     const trimmedPG = entry.pgName.trim();
     
@@ -204,18 +202,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const existingEntry = entries[existingIndex];
       const newCount = existingEntry.peopleCount + entry.peopleCount;
       
-      setEntries(prev => prev.map((e, idx) => 
-        idx === existingIndex 
-          ? { ...e, peopleCount: newCount }
-          : e
-      ));
+      const { error: updateError } = await supabase
+        .from('entries')
+        .update({ people_count: newCount })
+        .eq('id', existingEntry.id);
 
-      if (supabase) {
-        await supabase
-          .from('entries')
-          .update({ people_count: newCount })
-          .eq('id', existingEntry.id);
+      if (updateError) {
+        console.error('Error updating entry:', updateError);
+        setError('Failed to update entry');
+        return;
       }
+
+      await fetchEntries();
     } else {
       const newEntry: Entry = {
         ...entry,
@@ -226,55 +224,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
         createdAt: new Date().toISOString(),
       };
 
-      setEntries(prev => [newEntry, ...prev]);
+      const { error: insertError } = await supabase.from('entries').insert([{
+        id: newEntry.id,
+        person_name: newEntry.personName,
+        pg_name: newEntry.pgName,
+        phone_number: newEntry.phoneNumber,
+        people_count: newEntry.peopleCount,
+        date: newEntry.date,
+        session_id: newEntry.sessionId,
+        user_id: newEntry.userId,
+        created_at: newEntry.createdAt,
+      }]);
 
-      if (supabase) {
-        await supabase.from('entries').insert([{
-          id: newEntry.id,
-          person_name: newEntry.personName,
-          pg_name: newEntry.pgName,
-          phone_number: newEntry.phoneNumber,
-          people_count: newEntry.peopleCount,
-          date: newEntry.date,
-          session_id: newEntry.sessionId,
-          user_id: newEntry.userId,
-          created_at: newEntry.createdAt,
-        }]);
+      if (insertError) {
+        console.error('Error inserting entry:', insertError);
+        setError('Failed to add entry');
+        return;
       }
 
       if (!currentUserId) {
         setCurrentUser(userId, entry.phoneNumber);
       }
+
+      await fetchEntries();
     }
   };
 
   const updateEntryCount = async (id: string, newCount: number) => {
+    if (!supabase) {
+      setError('Database not connected');
+      return;
+    }
+
     const entry = entries.find(e => e.id === id);
     if (!entry || entry.userId !== currentUserId) return;
 
-    setEntries(prev => prev.map(e => 
-      e.id === id ? { ...e, peopleCount: newCount } : e
-    ));
+    const { error: updateError } = await supabase
+      .from('entries')
+      .update({ people_count: newCount })
+      .eq('id', id);
 
-    if (supabase) {
-      await supabase
-        .from('entries')
-        .update({ people_count: newCount })
-        .eq('id', id);
+    if (updateError) {
+      console.error('Error updating count:', updateError);
+      setError('Failed to update count');
+      return;
     }
+
+    await fetchEntries();
   };
 
   const updateEntryCountAdmin = async (id: string, newCount: number) => {
-    setEntries(prev => prev.map(e => 
-      e.id === id ? { ...e, peopleCount: newCount } : e
-    ));
-
-    if (supabase) {
-      await supabase
-        .from('entries')
-        .update({ people_count: newCount })
-        .eq('id', id);
+    if (!supabase) {
+      setError('Database not connected');
+      return;
     }
+
+    const { error: updateError } = await supabase
+      .from('entries')
+      .update({ people_count: newCount })
+      .eq('id', id);
+
+    if (updateError) {
+      console.error('Error updating count:', updateError);
+      setError('Failed to update count');
+      return;
+    }
+
+    await fetchEntries();
   };
 
   const startNewDay = () => {
@@ -326,9 +342,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentUserId,
       currentUserPhone,
       loading,
+      error,
       addEntry,
       updateEntryCount,
       updateEntryCountAdmin,
+      refreshEntries,
       startNewDay,
       getTodayEntries,
       getAllEntries,
